@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>はんばいかい アプリ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FFF7E8;
+    --card: #FFFFFF;
+    --coral: #FF6B4A;
+    --coral-dark: #E85A3B;
+    --teal: #1FA9A0;
+    --teal-dark: #14847D;
+    --yellow: #FFC145;
+    --green: #3FA66B;
+    --ink: #2B2B2B;
+    --ink-soft: #6b6459;
+    --line: #EFE3CC;
+    --radius: 22px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'M PLUS Rounded 1c', sans-serif;
+    font-weight:500;
+    overscroll-behavior:none;
+    user-select:none;
+  }
+  #app{
+    max-width:520px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    background:var(--bg);
+  }
+  /* ---------- header ---------- */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 18px 10px;
+  }
+  header h1{
+    font-size:22px;
+    font-weight:800;
+    margin:0;
+    color:var(--coral-dark);
+    letter-spacing:.02em;
+  }
+  .staff-btn{
+    border:none;
+    background:var(--card);
+    border:2px solid var(--line);
+    color:var(--ink-soft);
+    font-family:inherit;
+    font-size:12px;
+    font-weight:700;
+    padding:8px 12px;
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    gap:4px;
+    cursor:pointer;
+  }
+  .staff-btn:active{transform:scale(0.95);}
+
+  main{flex:1; display:flex; flex-direction:column; min-height:0;}
+  .screen{display:none; flex:1; flex-direction:column; min-height:0;}
+  .screen.active{display:flex;}
+
+  /* ---------- product grid ---------- */
+  #product-grid{
+    flex:1;
+    overflow-y:auto;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    padding:6px 18px 18px;
+    align-content:start;
+  }
+  .empty-hint{
+    grid-column:1/-1;
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:15px;
+    padding:40px 10px;
+    line-height:1.7;
+  }
+  .product-tile{
+    position:relative;
+    background:var(--card);
+    border:none;
+    border-radius:var(--radius);
+    padding:18px 10px 14px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    box-shadow:0 3px 0 var(--line);
+    font-family:inherit;
+    cursor:pointer;
+    transition:transform .08s ease;
+  }
+  .product-tile:active{transform:scale(0.94) translateY(2px); box-shadow:0 1px 0 var(--line);}
+  .product-emoji{font-size:44px; line-height:1;}
+  .product-photo-img{width:56px; height:56px; object-fit:cover; border-radius:14px; display:block;}
+  .product-name{font-size:16px; font-weight:700; text-align:center; word-break:break-word;}
+  .product-price{font-size:15px; font-weight:700; color:var(--teal-dark);}
+  .qty-badge{
+    position:absolute;
+    top:-10px; right:-10px;
+    background:var(--coral);
+    color:#fff;
+    min-width:38px; height:38px;
+    border-radius:19px;
+    display:flex; align-items:center; justify-content:center;
+    gap:0;
+    font-size:16px; font-weight:800;
+    box-shadow:0 2px 0 var(--coral-dark);
+    animation:pop .15s ease;
+    padding:0 4px;
+  }
+  .qty-badge .qty-num{padding:0 8px 0 4px;}
+  .qty-badge .qty-minus{
+    border:none; background:rgba(255,255,255,.25); color:#fff;
+    width:30px; height:30px; border-radius:50%;
+    font-size:18px; font-weight:800; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; padding:0; margin-left:2px;
+  }
+  .qty-badge .qty-minus:active{background:rgba(255,255,255,.45);}
+  @keyframes pop{ from{transform:scale(1.3);} to{transform:scale(1);} }
+
+  /* ---------- cart bar ---------- */
+  #cart-bar{
+    background:var(--card);
+    border-top:2px solid var(--line);
+    padding:14px 18px calc(14px + env(safe-area-inset-bottom));
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .cart-total-toggle{
+    border:none; background:none; font-family:inherit; text-align:left;
+    padding:0; cursor:pointer; color:inherit;
+  }
+  .cart-total-label{font-size:12px; color:var(--ink-soft); font-weight:700;}
+  .cart-total-value{font-size:26px; font-weight:800; color:var(--ink);}
+  #cart-detail{
+    display:none;
+    background:var(--card);
+    border-top:2px solid var(--line);
+    max-height:38vh;
+    overflow-y:auto;
+    padding:10px 14px;
+  }
+  #cart-detail.open{display:block;}
+  .cart-detail-row{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 2px; border-bottom:1px solid var(--line);
+  }
+  .cart-detail-row:last-child{border-bottom:none;}
+  .cdr-emoji{font-size:22px;}
+  .cdr-photo-img{width:26px; height:26px; object-fit:cover; border-radius:8px; display:block;}
+  .cdr-name{flex:1; font-size:14px; font-weight:700;}
+  .cdr-controls{display:flex; align-items:center; gap:8px;}
+  .cdr-btn{
+    width:42px; height:42px; border-radius:50%; border:none;
+    background:var(--bg); font-size:20px; font-weight:800; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; color:var(--ink);
+    flex-shrink:0;
+  }
+  .cdr-btn.plus{background:var(--teal); color:#fff;}
+  .cdr-btn.minus{background:var(--coral); color:#fff;}
+  .cdr-btn:active{transform:scale(0.9);}
+  .cdr-qty{min-width:26px; text-align:center; font-weight:800; font-size:17px;}
+  .cdr-subtotal{min-width:64px; text-align:right; font-size:14px; font-weight:700; color:var(--ink-soft);}
+  .cart-detail-empty{text-align:center; color:#9a9284; font-size:13px; padding:14px;}
+  #clear-cart-btn{
+    border:none;
+    background:none;
+    color:var(--ink-soft);
+    font-size:22px;
+    padding:8px;
+    cursor:pointer;
+  }
+  #checkout-btn{
+    margin-left:auto;
+    border:none;
+    background:var(--coral);
+    color:#fff;
+    font-family:inherit;
+    font-weight:800;
+    font-size:18px;
+    padding:16px 26px;
+    border-radius:18px;
+    box-shadow:0 4px 0 var(--coral-dark);
+    cursor:pointer;
+  }
+  #checkout-btn:disabled{background:#DAD2C2; box-shadow:0 4px 0 #c9c0ac; color:#fff; cursor:not-allowed;}
+  #checkout-btn:active:not(:disabled){transform:translateY(3px); box-shadow:0 1px 0 var(--coral-dark);}
+
+  /* ---------- checkout screen ---------- */
+  #screen-checkout{padding:18px; overflow-y:auto;}
+  .co-total-box{
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:22px;
+    text-align:center;
+    margin-bottom:16px;
+  }
+  .co-label{font-size:14px; color:var(--ink-soft); font-weight:700;}
+  .co-amount{font-size:40px; font-weight:800; margin-top:4px;}
+  .co-amount.total{color:var(--ink);}
+  .co-amount.received{color:var(--teal-dark);}
+  .co-amount.change{color:var(--coral-dark);}
+  .quick-bills{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .quick-bill-btn{
+    border:none;
+    background:var(--yellow);
+    color:var(--ink);
+    font-family:inherit;
+    font-weight:800;
+    font-size:15px;
+    padding:12px 4px;
+    border-radius:14px;
+    box-shadow:0 3px 0 #e0a52e;
+    cursor:pointer;
+  }
+  .quick-bill-btn:active{transform:translateY(2px); box-shadow:0 1px 0 #e0a52e;}
+  #numpad{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .num-btn{
+    border:none;
+    background:var(--card);
+    font-family:inherit;
+    font-weight:800;
+    font-size:22px;
+    padding:16px 0;
+    border-radius:16px;
+    box-shadow:0 3px 0 var(--line);
+    cursor:pointer;
+  }
+  .num-btn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--line);}
+  .num-btn.wide{grid-column:span 1;}
+  #confirm-pay-btn, #back-to-sale-btn, #next-customer-btn{
+    width:100%;
+    border:none;
+    font-family:inherit;
+    font-weight:800;
+    font-size:19px;
+    padding:18px;
+    border-radius:18px;
+    cursor:pointer;
+    margin-top:4px;
+  }
+  #confirm-pay-btn{background:var(--green); color:#fff; box-shadow:0 4px 0 #2c8354;}
+  #confirm-pay-btn:disabled{background:#DAD2C2; box-shadow:0 4px 0 #c9c0ac; cursor:not-allowed;}
+  #confirm-pay-btn:active:not(:disabled){transform:translateY(3px); box-shadow:0 1px 0 #2c8354;}
+  #back-to-sale-btn{background:none; color:var(--ink-soft); box-shadow:none; font-size:15px;}
+
+  .change-screen{text-align:center; padding-top:10px;}
+  .change-screen .co-amount.change{font-size:56px;}
+
+  /* ---------- 硬貨・お札イラスト ---------- */
+  .coin-breakdown{
+    display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-end;
+    gap:14px 16px; margin:18px 0 24px;
+  }
+  .coin-breakdown-empty{color:var(--ink-soft); font-size:14px; margin:18px 0 24px;}
+  .coin-item{display:flex; flex-direction:column; align-items:center; gap:6px;}
+  .coin-icon{
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; color:#fff; text-shadow:0 1px 1px rgba(0,0,0,.25);
+    border:2px solid rgba(255,255,255,.55);
+  }
+  .coin-icon.bill{width:84px; height:44px; border-radius:8px; font-size:14px; box-shadow:0 2px 0 rgba(0,0,0,.18);}
+  .coin-icon.coin{width:50px; height:50px; border-radius:50%; font-size:13px; box-shadow:0 2px 0 rgba(0,0,0,.2); position:relative;}
+  .coin-icon.coin.has-hole::after{
+    content:""; position:absolute; top:60%; left:50%; transform:translate(-50%,-50%);
+    width:12px; height:12px; border-radius:50%;
+    background:var(--card); border:2px solid rgba(0,0,0,.12);
+  }
+  .coin-icon.coin.has-hole .coin-value{
+    position:absolute; left:0; right:0; top:6px; font-size:12px; line-height:1; text-align:center;
+  }
+  .coin-icon.v10000{background:#C68A42;}
+  .coin-icon.v5000{background:#BC6FA8;}
+  .coin-icon.v1000{background:#4C84C9;}
+  .coin-icon.v500{background:#CBA43A;}
+  .coin-icon.v100{background:#C7C9CC; color:#444; text-shadow:none;}
+  .coin-icon.v50{background:#C7C9CC; color:#444; text-shadow:none;}
+  .coin-icon.v10{background:#BD7E44;}
+  .coin-icon.v5{background:#D8BA55; color:#6b4f00; text-shadow:none;}
+  .coin-icon.v1{background:#F1F1F1; color:#777; text-shadow:none; border-color:rgba(0,0,0,.08);}
+  .coin-count{font-size:13px; font-weight:800; color:var(--ink-soft);}
+  #next-customer-btn{background:var(--coral); color:#fff; box-shadow:0 4px 0 var(--coral-dark);}
+  #next-customer-btn:active{transform:translateY(3px); box-shadow:0 1px 0 var(--coral-dark);}
+
+  /* ---------- staff screen ---------- */
+  #screen-staff{padding:16px 18px; overflow-y:auto;}
+  .staff-header{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+  .staff-header h2{font-size:19px; margin:0; font-weight:800;}
+  .close-x{margin-left:auto; border:none; background:none; font-size:22px; color:var(--ink-soft); cursor:pointer;}
+  .app-name-edit{
+    background:var(--card); border-radius:16px; padding:12px 14px; margin-bottom:16px;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .app-name-label{font-size:12px; font-weight:700; color:var(--ink-soft);}
+  .app-name-edit input{
+    border:2px solid var(--line); border-radius:12px; padding:10px 12px;
+    font-family:inherit; font-size:16px; font-weight:700; color:var(--ink); background:var(--bg);
+  }
+  .setting-row{
+    background:var(--card); border-radius:16px; padding:12px 14px; margin-bottom:16px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .setting-row .app-name-label{flex:1; line-height:1.4;}
+  .switch{position:relative; display:inline-block; width:50px; height:28px; flex-shrink:0;}
+  .switch input{opacity:0; width:0; height:0;}
+  .switch-slider{
+    position:absolute; inset:0; background:var(--line); border-radius:28px;
+    cursor:pointer; transition:background .2s;
+  }
+  .switch-slider::before{
+    content:""; position:absolute; height:22px; width:22px; left:3px; top:3px;
+    background:#fff; border-radius:50%; box-shadow:0 1px 2px rgba(0,0,0,.25); transition:transform .2s;
+  }
+  .switch input:checked + .switch-slider{background:var(--teal);}
+  .switch input:checked + .switch-slider::before{transform:translateX(22px);}
+  .tabbar{display:flex; gap:8px; margin-bottom:16px;}
+  .tab-btn{
+    flex:1;
+    border:2px solid var(--line);
+    background:var(--card);
+    font-family:inherit;
+    font-weight:700;
+    font-size:12px;
+    padding:10px 4px;
+    border-radius:14px;
+    cursor:pointer;
+    color:var(--ink-soft);
+    line-height:1.3;
+  }
+  .tab-btn.active{background:var(--teal); border-color:var(--teal); color:#fff;}
+  .staff-panel{display:none;}
+  .staff-panel.active{display:block;}
+
+  .summary-cards{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;}
+  .summary-card{background:var(--card); border-radius:18px; padding:16px; text-align:center;}
+  .summary-card .label{font-size:13px; color:var(--ink-soft); font-weight:700;}
+  .summary-card .value{font-size:26px; font-weight:800; margin-top:4px;}
+  #sales-table{width:100%; border-collapse:collapse; background:var(--card); border-radius:14px; overflow:hidden; margin-bottom:16px;}
+  #sales-table th, #sales-table td{padding:10px 8px; text-align:left; font-size:14px; border-bottom:1px solid var(--line);}
+  #sales-table th{color:var(--ink-soft); font-weight:700; font-size:12px;}
+  #sales-table td.num{text-align:right; font-weight:700;}
+  .table-thumb{width:18px; height:18px; object-fit:cover; border-radius:6px; vertical-align:middle; margin-right:4px;}
+  #reset-sales-btn{
+    width:100%; border:none; background:#fff; color:#c0392b; font-family:inherit;
+    font-weight:700; font-size:14px; padding:12px; border-radius:14px; border:2px solid #f3c9c2; cursor:pointer;
+  }
+
+  .history-card{
+    background:var(--card); border-radius:16px; padding:14px 16px; margin-bottom:10px;
+  }
+  .history-card .hc-top{
+    display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;
+  }
+  .history-card .hc-num{font-weight:800; font-size:15px; color:var(--teal-dark);}
+  .history-card .hc-time{font-size:12px; color:var(--ink-soft);}
+  .history-card ul{margin:0; padding:0; list-style:none;}
+  .history-card li{
+    display:flex; justify-content:space-between; font-size:14px; padding:2px 0;
+  }
+  .history-card .hc-item-name{color:var(--ink);}
+  .history-card .hc-item-qty{color:var(--ink-soft); margin:0 6px;}
+  .history-card .hc-foot{
+    display:flex; justify-content:space-between; margin-top:8px; padding-top:8px;
+    border-top:1px dashed var(--line); font-size:13px; color:var(--ink-soft);
+  }
+  .history-card .hc-foot b{color:var(--ink); font-size:15px;}
+  .history-empty{color:#9a9284; text-align:center; padding:30px 10px; font-size:14px;}
+
+  .product-edit-row{
+    display:flex; gap:8px; align-items:center;
+    background:var(--card); border-radius:16px; padding:10px; margin-bottom:10px;
+  }
+  .product-edit-row input[type=text]{width:46px; text-align:center; font-size:22px; border:2px solid var(--line); border-radius:10px; padding:6px 2px; font-family:inherit;}
+  .product-edit-row input.name-input{flex:1; width:auto; font-size:15px; text-align:left;}
+  .product-edit-row input.price-input{width:80px; font-size:15px;}
+  .product-edit-row .yen-sign{font-size:14px; color:var(--ink-soft);}
+  .photo-upload{position:relative; flex-shrink:0;}
+  .photo-preview-btn{
+    width:52px; height:52px; border-radius:14px; border:2px solid var(--line);
+    background:var(--bg); display:flex; align-items:center; justify-content:center;
+    overflow:hidden; padding:0; cursor:pointer; font-size:26px; font-family:inherit;
+  }
+  .photo-preview-btn:active{transform:scale(0.94);}
+  .photo-preview-img{width:100%; height:100%; object-fit:cover; display:block;}
+  .photo-remove-btn{
+    position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%;
+    border:none; background:#c0392b; color:#fff; font-size:12px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; line-height:1;
+  }
+  .photo-hint{font-size:10px; color:var(--ink-soft); text-align:center; margin-top:2px;}
+  .del-btn{border:none; background:none; color:#c0392b; font-size:20px; cursor:pointer; padding:6px;}
+  #add-product-btn{
+    width:100%; border:none; background:var(--teal); color:#fff; font-family:inherit;
+    font-weight:800; font-size:15px; padding:14px; border-radius:16px; cursor:pointer; box-shadow:0 3px 0 var(--teal-dark);
+  }
+
+  /* confirm dialog */
+  #confirm-overlay{
+    position:absolute; inset:0; background:rgba(0,0,0,.4);
+    display:none; align-items:center; justify-content:center; padding:24px; z-index:50;
+  }
+  #confirm-overlay.active{display:flex;}
+  .confirm-box{background:#fff; border-radius:20px; padding:22px; text-align:center; max-width:320px;}
+  .confirm-box p{font-size:16px; font-weight:700; margin:0 0 18px;}
+  .confirm-actions{display:flex; gap:10px;}
+  .confirm-actions button{
+    flex:1; border:none; padding:12px; border-radius:14px; font-family:inherit; font-weight:800; font-size:15px; cursor:pointer;
+  }
+  #confirm-yes{background:#c0392b; color:#fff;}
+  #confirm-no{background:var(--line); color:var(--ink);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <h1>🎪 <span id="app-title-text">はんばいかい</span></h1>
+    <button class="staff-btn" onclick="openStaff()">⚙️ スタッフ用</button>
+  </header>
+
+  <main>
+    <!-- ================= 販売画面 ================= -->
+    <section id="screen-sale" class="screen active" style="display:flex;">
+      <div id="product-grid"></div>
+      <div id="cart-detail"></div>
+      <div id="cart-bar">
+        <button class="cart-total-toggle" onclick="toggleCartDetail()">
+          <div class="cart-total-label">ごうけい ▾ うちわけ</div>
+          <div class="cart-total-value" id="cart-total-display">¥0</div>
+        </button>
+        <button id="clear-cart-btn" onclick="askClearCart()" title="やりなおす">🗑️</button>
+        <button id="checkout-btn" onclick="goCheckout()" disabled>かいけいへ →</button>
+      </div>
+    </section>
+
+    <!-- ================= 会計画面 ================= -->
+    <section id="screen-checkout" class="screen">
+      <div id="checkout-input-view">
+        <div class="co-total-box">
+          <div class="co-label">おきゃくさまの ごうけい</div>
+          <div class="co-amount total" id="co-total">¥0</div>
+        </div>
+        <div class="co-total-box" style="margin-bottom:14px;">
+          <div class="co-label">あずかった きんがく</div>
+          <div class="co-amount received" id="co-received">¥0</div>
+        </div>
+        <div class="quick-bills" id="quick-bills"></div>
+        <div id="numpad">
+          <button class="num-btn" onclick="numInput('1')">1</button>
+          <button class="num-btn" onclick="numInput('2')">2</button>
+          <button class="num-btn" onclick="numInput('3')">3</button>
+          <button class="num-btn" onclick="numInput('4')">4</button>
+          <button class="num-btn" onclick="numInput('5')">5</button>
+          <button class="num-btn" onclick="numInput('6')">6</button>
+          <button class="num-btn" onclick="numInput('7')">7</button>
+          <button class="num-btn" onclick="numInput('8')">8</button>
+          <button class="num-btn" onclick="numInput('9')">9</button>
+          <button class="num-btn" onclick="numInput('00')">00</button>
+          <button class="num-btn" onclick="numInput('0')">0</button>
+          <button class="num-btn" onclick="numBackspace()">⌫</button>
+        </div>
+        <button id="confirm-pay-btn" disabled onclick="confirmPayment()">おつりを けいさん</button>
+        <button id="back-to-sale-btn" onclick="backToSale()">← もどる</button>
+      </div>
+
+      <div id="checkout-change-view" class="change-screen" style="display:none;">
+        <div class="co-total-box">
+          <div class="co-label">おつり</div>
+          <div class="co-amount change" id="co-change">¥0</div>
+        </div>
+        <div class="coin-breakdown" id="coin-breakdown"></div>
+        <button id="next-customer-btn" onclick="nextCustomer()">つぎの おきゃくさま →</button>
+      </div>
+    </section>
+
+    <!-- ================= スタッフ画面 ================= -->
+    <section id="screen-staff" class="screen">
+      <div class="staff-header">
+        <h2>スタッフ用</h2>
+        <button class="close-x" onclick="closeStaff()">✕</button>
+      </div>
+      <div class="app-name-edit">
+        <label class="app-name-label" for="app-name-input">はんばいかいの なまえ</label>
+        <input type="text" id="app-name-input" maxlength="20" placeholder="はんばいかい" onchange="updateAppName(this.value)">
+      </div>
+      <div class="setting-row">
+        <label class="app-name-label" for="coin-breakdown-toggle">おつりの こうか・おさつ イラストを ひょうじ</label>
+        <label class="switch">
+          <input type="checkbox" id="coin-breakdown-toggle" onchange="updateShowCoinBreakdown(this.checked)">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+      <div class="tabbar">
+        <button class="tab-btn active" id="tab-btn-summary" onclick="showStaffTab('summary')">うりあげ</button>
+        <button class="tab-btn" id="tab-btn-history" onclick="showStaffTab('history')">こうにゅう りれき</button>
+        <button class="tab-btn" id="tab-btn-products" onclick="showStaffTab('products')">しょうひん せってい</button>
+      </div>
+
+      <div class="staff-panel active" id="panel-summary">
+        <div class="summary-cards">
+          <div class="summary-card">
+            <div class="label">うりあげ ごうけい</div>
+            <div class="value" id="summary-total">¥0</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">こうにゅう にんずう</div>
+            <div class="value" id="summary-count">0人</div>
+          </div>
+        </div>
+        <table id="sales-table">
+          <thead><tr><th>しょうひん</th><th style="text-align:right;">すう</th><th style="text-align:right;">きんがく</th></tr></thead>
+          <tbody id="sales-table-body"></tbody>
+        </table>
+        <button id="reset-sales-btn" onclick="askResetSales()">うりあげデータを リセット</button>
+      </div>
+
+      <div class="staff-panel" id="panel-history">
+        <div id="history-list"></div>
+      </div>
+
+      <div class="staff-panel" id="panel-products">
+        <div id="product-edit-list"></div>
+        <button id="add-product-btn" onclick="addProduct()">＋ しょうひんを ついか</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="confirm-overlay">
+    <div class="confirm-box">
+      <p id="confirm-message">よろしいですか？</p>
+      <div class="confirm-actions">
+        <button id="confirm-no" onclick="closeConfirm()">キャンセル</button>
+        <button id="confirm-yes" onclick="confirmYes()">リセットする</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ---------------- 状態管理 ---------------- */
+let products = [];      // [{id,name,price,emoji}]
+let sales = {total:0, count:0, byProduct:{}, history:[]}; // byProduct: {id:{qty,subtotal}}, history: [{num,time,items,total,received,change}]
+let cart = {};           // {id: qty}  (会計前のかご)
+let receivedStr = "";    // 会計画面の入力中文字列
+let pendingResetAction = null;
+let storageAvailable = true; // この端末で永続保存が使えるか(使えない場合はメモリ内だけで動作)
+let appName = "はんばいかい";
+const DEFAULT_APP_NAME = "はんばいかい";
+let showCoinBreakdown = true;
+const DEFAULT_SHOW_COIN_BREAKDOWN = true;
+const STORAGE_PREFIX = "hanbaikai_";
+
+const DEFAULT_PRODUCTS = [
+  {id:"p1", name:"クッキー", price:100, emoji:"🍪"},
+  {id:"p2", name:"ジュース", price:150, emoji:"🧃"},
+  {id:"p3", name:"てづくりカード", price:50, emoji:"🎨"},
+  {id:"p4", name:"ぬいぐるみ", price:300, emoji:"🧸"},
+];
+
+/* ---------------- 保存/読み込み ---------------- */
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_PREFIX + 'products');
+    products = raw ? JSON.parse(raw) : DEFAULT_PRODUCTS;
+    if(!raw) saveProducts();
+  }catch(e){
+    storageAvailable = false;
+    products = DEFAULT_PRODUCTS;
+  }
+
+  try{
+    const raw = localStorage.getItem(STORAGE_PREFIX + 'sales');
+    sales = raw ? JSON.parse(raw) : {total:0, count:0, byProduct:{}, history:[]};
+    if(!sales.history) sales.history = [];
+    if(!raw) saveSales();
+  }catch(e){
+    storageAvailable = false;
+    sales = {total:0, count:0, byProduct:{}, history:[]};
+  }
+
+  try{
+    const raw = localStorage.getItem(STORAGE_PREFIX + 'appName');
+    appName = raw || DEFAULT_APP_NAME;
+    if(!raw) saveAppName();
+  }catch(e){
+    storageAvailable = false;
+    appName = DEFAULT_APP_NAME;
+  }
+
+  try{
+    const raw = localStorage.getItem(STORAGE_PREFIX + 'showCoinBreakdown');
+    showCoinBreakdown = raw === null ? DEFAULT_SHOW_COIN_BREAKDOWN : raw === '1';
+    if(raw === null) saveShowCoinBreakdown();
+  }catch(e){
+    storageAvailable = false;
+    showCoinBreakdown = DEFAULT_SHOW_COIN_BREAKDOWN;
+  }
+
+  renderProductGrid();
+  renderProductEditList();
+  renderSummary();
+  renderCartDetail();
+  renderAppName();
+  renderCoinBreakdownToggle();
+}
+function saveProducts(){
+  if(!storageAvailable) return;
+  try{
+    localStorage.setItem(STORAGE_PREFIX + 'products', JSON.stringify(products));
+  }catch(e){
+    storageAvailable = false;
+  }
+}
+function saveSales(){
+  if(!storageAvailable) return;
+  try{
+    localStorage.setItem(STORAGE_PREFIX + 'sales', JSON.stringify(sales));
+  }catch(e){
+    storageAvailable = false;
+  }
+}
+function saveAppName(){
+  if(!storageAvailable) return;
+  try{
+    localStorage.setItem(STORAGE_PREFIX + 'appName', appName);
+  }catch(e){
+    storageAvailable = false;
+  }
+}
+function saveShowCoinBreakdown(){
+  if(!storageAvailable) return;
+  try{
+    localStorage.setItem(STORAGE_PREFIX + 'showCoinBreakdown', showCoinBreakdown ? '1' : '0');
+  }catch(e){
+    storageAvailable = false;
+  }
+}
+
+/* ---------------- アプリのなまえ ---------------- */
+function renderAppName(){
+  document.getElementById('app-title-text').textContent = appName;
+  document.getElementById('app-name-input').value = appName;
+}
+function updateAppName(value){
+  const trimmed = value.trim();
+  appName = trimmed === "" ? DEFAULT_APP_NAME : trimmed;
+  saveAppName();
+  renderAppName();
+}
+
+/* ---------------- おつりイラストの ON/OFF ---------------- */
+function renderCoinBreakdownToggle(){
+  document.getElementById('coin-breakdown-toggle').checked = showCoinBreakdown;
+}
+function updateShowCoinBreakdown(checked){
+  showCoinBreakdown = checked;
+  saveShowCoinBreakdown();
+}
+
+/* ---------------- 販売画面 ---------------- */
+function renderProductGrid(){
+  const grid = document.getElementById('product-grid');
+  grid.innerHTML = "";
+  if(products.length === 0){
+    grid.innerHTML = '<div class="empty-hint">しょうひんが ありません<br>「⚙️ スタッフ用」から とうろくしてください</div>';
+    return;
+  }
+  products.forEach(p=>{
+    const btn = document.createElement('button');
+    btn.className = 'product-tile';
+    btn.onclick = ()=>addToCart(p.id);
+    const qty = cart[p.id] || 0;
+    btn.innerHTML = `
+      <div class="product-emoji">${p.image ? `<img class="product-photo-img" src="${p.image}" alt="">` : p.emoji}</div>
+      <div class="product-name">${escapeHtml(p.name)}</div>
+      <div class="product-price">¥${p.price.toLocaleString()}</div>
+      ${qty>0 ? `<div class="qty-badge"><button class="qty-minus" onclick="event.stopPropagation(); removeFromCart('${p.id}')">－</button><span class="qty-num">${qty}</span></div>` : ""}
+    `;
+    grid.appendChild(btn);
+  });
+}
+function addToCart(id){
+  cart[id] = (cart[id]||0) + 1;
+  renderProductGrid();
+  updateCartBar();
+  renderCartDetail();
+}
+function removeFromCart(id){
+  if(!cart[id]) return;
+  cart[id] -= 1;
+  if(cart[id] <= 0) delete cart[id];
+  renderProductGrid();
+  updateCartBar();
+  renderCartDetail();
+}
+function askClearCart(){
+  if(cartTotal() <= 0) return;
+  pendingResetAction = 'cart';
+  document.getElementById('confirm-message').textContent = 'かごの なかみを ぜんぶ けしますか？';
+  document.getElementById('confirm-overlay').classList.add('active');
+}
+function clearCart(){
+  cart = {};
+  renderProductGrid();
+  updateCartBar();
+  renderCartDetail();
+}
+function toggleCartDetail(){
+  document.getElementById('cart-detail').classList.toggle('open');
+}
+function renderCartDetail(){
+  const box = document.getElementById('cart-detail');
+  const ids = Object.keys(cart);
+  if(ids.length === 0){
+    box.innerHTML = '<div class="cart-detail-empty">かごは からです</div>';
+    return;
+  }
+  box.innerHTML = ids.map(id=>{
+    const p = products.find(pp=>pp.id===id);
+    if(!p) return "";
+    const qty = cart[id];
+    return `
+      <div class="cart-detail-row">
+        <span class="cdr-emoji">${p.image ? `<img class="cdr-photo-img" src="${p.image}" alt="">` : p.emoji}</span>
+        <span class="cdr-name">${escapeHtml(p.name)}</span>
+        <div class="cdr-controls">
+          <button class="cdr-btn minus" onclick="removeFromCart('${id}')">－</button>
+          <span class="cdr-qty">${qty}</span>
+          <button class="cdr-btn plus" onclick="addToCart('${id}')">＋</button>
+        </div>
+        <span class="cdr-subtotal">¥${(p.price*qty).toLocaleString()}</span>
+      </div>
+    `;
+  }).join('');
+}
+function cartTotal(){
+  let total = 0;
+  for(const id in cart){
+    const p = products.find(pp=>pp.id===id);
+    if(p) total += p.price * cart[id];
+  }
+  return total;
+}
+function updateCartBar(){
+  const total = cartTotal();
+  document.getElementById('cart-total-display').textContent = `¥${total.toLocaleString()}`;
+  document.getElementById('checkout-btn').disabled = total <= 0;
+}
+
+/* ---------------- 会計画面 ---------------- */
+function goCheckout(){
+  if(cartTotal() <= 0) return;
+  receivedStr = "";
+  document.getElementById('co-total').textContent = `¥${cartTotal().toLocaleString()}`;
+  document.getElementById('co-received').textContent = "¥0";
+  document.getElementById('confirm-pay-btn').disabled = true;
+  document.getElementById('checkout-input-view').style.display = "block";
+  document.getElementById('checkout-change-view').style.display = "none";
+  renderQuickBills();
+  showScreen('screen-checkout');
+}
+function renderQuickBills(){
+  const total = cartTotal();
+  const box = document.getElementById('quick-bills');
+  const bills = [total, 100, 500, 1000, 5000, 10000];
+  const seen = new Set();
+  box.innerHTML = "";
+  bills.forEach(v=>{
+    if(seen.has(v)) return;
+    seen.add(v);
+    const btn = document.createElement('button');
+    btn.className = 'quick-bill-btn';
+    btn.textContent = (v===total) ? `ぴったり ¥${v.toLocaleString()}` : `¥${v.toLocaleString()}`;
+    btn.onclick = ()=>{ receivedStr = String(v); updateReceivedDisplay(); };
+    box.appendChild(btn);
+  });
+}
+function numInput(d){
+  if(receivedStr.length >= 6) return;
+  receivedStr += d;
+  receivedStr = String(parseInt(receivedStr,10));
+  updateReceivedDisplay();
+}
+function numBackspace(){
+  receivedStr = receivedStr.slice(0,-1);
+  updateReceivedDisplay();
+}
+function updateReceivedDisplay(){
+  const val = receivedStr === "" ? 0 : parseInt(receivedStr,10);
+  document.getElementById('co-received').textContent = `¥${val.toLocaleString()}`;
+  document.getElementById('confirm-pay-btn').disabled = val < cartTotal();
+}
+function confirmPayment(){
+  const received = receivedStr === "" ? 0 : parseInt(receivedStr,10);
+  const total = cartTotal();
+  if(received < total) return;
+  const change = received - total;
+  document.getElementById('co-change').textContent = `¥${change.toLocaleString()}`;
+  document.getElementById('checkout-input-view').style.display = "none";
+  document.getElementById('checkout-change-view').style.display = "block";
+  renderCoinBreakdown(change);
+  recordSale(total, received, change);
+}
+
+/* ---------- おつりの 硬貨・お札 うちわけ ---------- */
+const DENOMINATIONS = [
+  {value:10000, type:'bill'},
+  {value:5000,  type:'bill'},
+  {value:1000,  type:'bill'},
+  {value:500,   type:'coin'},
+  {value:100,   type:'coin'},
+  {value:50,    type:'coin', hole:true},
+  {value:10,    type:'coin'},
+  {value:5,     type:'coin', hole:true},
+  {value:1,     type:'coin'},
+];
+function calcCoinBreakdown(amount){
+  let remaining = amount;
+  const result = [];
+  DENOMINATIONS.forEach(d=>{
+    const count = Math.floor(remaining / d.value);
+    if(count > 0){
+      result.push({...d, count});
+      remaining -= count * d.value;
+    }
+  });
+  return result;
+}
+function renderCoinBreakdown(amount){
+  const box = document.getElementById('coin-breakdown');
+  if(!showCoinBreakdown){
+    box.innerHTML = "";
+    return;
+  }
+  const breakdown = calcCoinBreakdown(amount);
+  if(breakdown.length === 0){
+    box.innerHTML = '<div class="coin-breakdown-empty">おつりは ありません</div>';
+    return;
+  }
+  box.innerHTML = breakdown.map(d=>`
+    <div class="coin-item">
+      <div class="coin-icon ${d.type} v${d.value} ${d.hole ? 'has-hole' : ''}"><span class="coin-value">${d.value.toLocaleString()}</span></div>
+      <div class="coin-count">×${d.count}</div>
+    </div>
+  `).join('');
+}
+function recordSale(total, received, change){
+  sales.total += total;
+  sales.count += 1;
+  const items = [];
+  for(const id in cart){
+    const p = products.find(pp=>pp.id===id);
+    if(!p) continue;
+    if(!sales.byProduct[id]) sales.byProduct[id] = {qty:0, subtotal:0};
+    sales.byProduct[id].qty += cart[id];
+    sales.byProduct[id].subtotal += p.price * cart[id];
+    items.push({name:p.name, emoji:p.emoji, image:p.image||"", price:p.price, qty:cart[id], subtotal:p.price*cart[id]});
+  }
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  sales.history.push({
+    num: sales.count,
+    time: `${hh}:${mm}`,
+    items,
+    total,
+    received,
+    change
+  });
+  saveSales();
+  renderSummary();
+}
+function nextCustomer(){
+  cart = {};
+  renderProductGrid();
+  updateCartBar();
+  renderCartDetail();
+  document.getElementById('cart-detail').classList.remove('open');
+  showScreen('screen-sale');
+}
+function backToSale(){
+  showScreen('screen-sale');
+}
+
+/* ---------------- 画面切替 ---------------- */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>{
+    s.style.display = (s.id===id) ? 'flex' : 'none';
+  });
+}
+function openStaff(){ showScreen('screen-staff'); }
+function closeStaff(){ showScreen('screen-sale'); }
+function showStaffTab(tab){
+  document.getElementById('panel-summary').classList.toggle('active', tab==='summary');
+  document.getElementById('panel-history').classList.toggle('active', tab==='history');
+  document.getElementById('panel-products').classList.toggle('active', tab==='products');
+  document.getElementById('tab-btn-summary').classList.toggle('active', tab==='summary');
+  document.getElementById('tab-btn-history').classList.toggle('active', tab==='history');
+  document.getElementById('tab-btn-products').classList.toggle('active', tab==='products');
+  if(tab==='history') renderHistory();
+}
+
+/* ---------------- スタッフ:売上集計 ---------------- */
+function renderSummary(){
+  document.getElementById('summary-total').textContent = `¥${sales.total.toLocaleString()}`;
+  document.getElementById('summary-count').textContent = `${sales.count}人`;
+  const tbody = document.getElementById('sales-table-body');
+  tbody.innerHTML = "";
+  const ids = Object.keys(sales.byProduct);
+  if(ids.length === 0){
+    tbody.innerHTML = '<tr><td colspan="3" style="color:#9a9284; text-align:center;">まだ うりあげが ありません</td></tr>';
+    return;
+  }
+  ids.forEach(id=>{
+    const p = products.find(pp=>pp.id===id);
+    const nameHtml = p
+      ? (p.image ? `<img class="table-thumb" src="${p.image}" alt="">` : `${p.emoji} `) + escapeHtml(p.name)
+      : `(さくじょ済) ${escapeHtml(id)}`;
+    const row = sales.byProduct[id];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${nameHtml}</td><td class="num">${row.qty}</td><td class="num">¥${row.subtotal.toLocaleString()}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderHistory(){
+  const list = document.getElementById('history-list');
+  list.innerHTML = "";
+  const hist = sales.history || [];
+  if(hist.length === 0){
+    list.innerHTML = '<div class="history-empty">まだ こうにゅう りれきが ありません</div>';
+    return;
+  }
+  for(let i = hist.length - 1; i >= 0; i--){
+    const rec = hist[i];
+    const card = document.createElement('div');
+    card.className = 'history-card';
+    const itemsHtml = rec.items.map(it=>{
+      const iconHtml = it.image ? `<img class="table-thumb" src="${it.image}" alt="">` : `${it.emoji || ''} `;
+      return `
+      <li><span class="hc-item-name">${iconHtml}${escapeHtml(it.name)}<span class="hc-item-qty">×${it.qty}</span></span><span>¥${it.subtotal.toLocaleString()}</span></li>
+    `;
+    }).join('');
+    card.innerHTML = `
+      <div class="hc-top">
+        <span class="hc-num">${rec.num}にん め の おきゃくさま</span>
+        <span class="hc-time">${rec.time}</span>
+      </div>
+      <ul>${itemsHtml}</ul>
+      <div class="hc-foot">
+        <span>おあずかり ¥${rec.received.toLocaleString()} / おつり ¥${rec.change.toLocaleString()}</span>
+        <b>¥${rec.total.toLocaleString()}</b>
+      </div>
+    `;
+    list.appendChild(card);
+  }
+}
+function askResetSales(){
+  pendingResetAction = 'sales';
+  document.getElementById('confirm-message').textContent = 'うりあげデータを ぜんぶ リセットしますか？';
+  document.getElementById('confirm-overlay').classList.add('active');
+}
+function closeConfirm(){
+  document.getElementById('confirm-overlay').classList.remove('active');
+  pendingResetAction = null;
+}
+function confirmYes(){
+  if(pendingResetAction === 'sales'){
+    sales = {total:0, count:0, byProduct:{}, history:[]};
+    saveSales();
+    renderSummary();
+    renderHistory();
+  } else if(pendingResetAction === 'cart'){
+    clearCart();
+  }
+  closeConfirm();
+}
+
+/* ---------------- スタッフ:商品設定 ---------------- */
+function renderProductEditList(){
+  const list = document.getElementById('product-edit-list');
+  list.innerHTML = "";
+  products.forEach(p=>{
+    const row = document.createElement('div');
+    row.className = 'product-edit-row';
+    row.innerHTML = `
+      <div class="photo-upload">
+        <input type="file" accept="image/*" style="display:none" onchange="handlePhotoUpload('${p.id}', this)">
+        <button type="button" class="photo-preview-btn" title="しゃしんをえらぶ" onclick="this.previousElementSibling.click()">
+          ${p.image ? `<img class="photo-preview-img" src="${p.image}" alt="">` : escapeHtml(p.emoji)}
+        </button>
+        ${p.image ? `<button type="button" class="photo-remove-btn" title="しゃしんをけす" onclick="removePhoto('${p.id}')">✕</button>` : ""}
+      </div>
+      <input type="text" value="${escapeAttr(p.emoji)}" maxlength="4" title="しゃしんが ないときの えもじ" onchange="updateProduct('${p.id}','emoji',this.value)">
+      <input type="text" class="name-input" value="${escapeAttr(p.name)}" onchange="updateProduct('${p.id}','name',this.value)">
+      <span class="yen-sign">¥</span>
+      <input type="number" class="price-input" value="${p.price}" min="0" onchange="updateProduct('${p.id}','price',this.value)">
+      <button class="del-btn" onclick="deleteProduct('${p.id}')">🗑️</button>
+    `;
+    list.appendChild(row);
+  });
+}
+function updateProduct(id, field, value){
+  const p = products.find(pp=>pp.id===id);
+  if(!p) return;
+  if(field === 'price') p.price = Math.max(0, parseInt(value,10) || 0);
+  else p[field] = value;
+  saveProducts();
+  renderProductGrid();
+  renderProductEditList();
+}
+function deleteProduct(id){
+  products = products.filter(p=>p.id!==id);
+  delete cart[id];
+  saveProducts();
+  renderProductGrid();
+  renderProductEditList();
+  updateCartBar();
+  renderCartDetail();
+}
+function addProduct(){
+  const id = 'p' + Date.now();
+  products.push({id, name:"あたらしいしょうひん", price:100, emoji:"🎁", image:""});
+  saveProducts();
+  renderProductEditList();
+  renderProductGrid();
+}
+function handlePhotoUpload(id, inputEl){
+  const file = inputEl.files && inputEl.files[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/')){
+    inputEl.value = "";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const maxSize = 240;
+      let w = img.width, h = img.height;
+      if(w > h){ if(w > maxSize){ h = Math.round(h * maxSize / w); w = maxSize; } }
+      else{ if(h > maxSize){ w = Math.round(w * maxSize / h); h = maxSize; } }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      updateProduct(id, 'image', dataUrl);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  inputEl.value = "";
+}
+function removePhoto(id){
+  updateProduct(id, 'image', "");
+}
+
+/* ---------------- ユーティリティ ---------------- */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(s){ return escapeHtml(s); }
+
+loadState();
+</script>
+</body>
+</html>
