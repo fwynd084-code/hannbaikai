@@ -1,6 +1,6 @@
 // はんばいかい アプリ: オフライン用サービスワーカー
 // アプリを更新したら VERSION の数字を上げてください。
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = 'hanbaikai-' + VERSION;
 const APP_FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 

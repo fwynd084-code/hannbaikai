@@ -415,13 +415,41 @@
   .history-empty{color:#9a9284; text-align:center; padding:30px 10px; font-size:14px;}
 
   .product-edit-row{
-    display:flex; gap:8px; align-items:center;
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center;
     background:var(--card); border-radius:16px; padding:10px; margin-bottom:10px;
   }
   .product-edit-row input[type=text]{width:46px; text-align:center; font-size:22px; border:2px solid var(--line); border-radius:10px; padding:6px 2px; font-family:inherit;}
-  .product-edit-row input.name-input{flex:1; width:auto; font-size:15px; text-align:left;}
+  .product-edit-row input.name-input{flex:1 1 0; min-width:60px; width:auto; font-size:15px; text-align:left;}
   .product-edit-row input.price-input{width:80px; font-size:15px;}
   .product-edit-row .yen-sign{font-size:14px; color:var(--ink-soft);}
+  .stock-line{flex-basis:100%; display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:var(--ink-soft); padding-left:2px;}
+  .stock-line input.stock-input{width:84px; font-size:15px; border:2px solid var(--line); border-radius:10px; padding:6px 8px; font-family:inherit; text-align:right;}
+  .stock-line .stock-sold{margin-left:auto; font-weight:500;}
+  /* のこり・うりきれ */
+  .product-stock{font-size:calc(13px * var(--ts,1)); font-weight:700; color:var(--ink-soft); background:var(--bg); border-radius:999px; padding:2px calc(10px * var(--ts,1));}
+  .product-stock.low{color:#fff; background:var(--yellow); color:#6b4f00;}
+  .product-tile.no-more{opacity:.75;}
+  .product-tile.no-more .product-stock{background:#DAD2C2; color:#fff;}
+  .product-tile.soldout{cursor:not-allowed; box-shadow:0 3px 0 #e2d9c6; background:#f3eee4;}
+  .product-tile.soldout:active{transform:none;}
+  .product-tile.soldout > .product-emoji, .product-tile.soldout > .product-name, .product-tile.soldout > .product-price{opacity:.35; filter:grayscale(1);}
+  .soldout-stamp{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) rotate(-12deg);
+    border:calc(3px * var(--ts,1)) solid #c0392b; color:#c0392b; background:rgba(255,255,255,.85);
+    font-weight:800; font-size:calc(22px * var(--ts,1)); padding:calc(4px * var(--ts,1)) calc(14px * var(--ts,1));
+    border-radius:calc(10px * var(--ts,1)); letter-spacing:.1em; white-space:nowrap; pointer-events:none;
+  }
+  .cdr-btn.plus:disabled{background:#DAD2C2; cursor:not-allowed;}
+  /* りれきの とりけし */
+  .hc-right{display:flex; align-items:center; gap:8px;}
+  .hc-cancel-btn{
+    border:2px solid #f3c9c2; background:#fff; color:#c0392b; font-family:inherit; font-weight:700;
+    font-size:12px; padding:5px 10px; border-radius:10px; cursor:pointer;
+  }
+  .hc-cancel-btn:active{transform:scale(0.95);}
+  .history-card.canceled{background:#f3eee4;}
+  .history-card.canceled ul, .history-card.canceled .hc-foot{opacity:.45; text-decoration:line-through;}
+  .hc-canceled-label{font-size:12px; font-weight:800; color:#c0392b; border:2px solid #c0392b; border-radius:8px; padding:2px 8px;}
   .photo-upload{position:relative; flex-shrink:0;}
   .photo-preview-btn{
     width:52px; height:52px; border-radius:14px; border:2px solid var(--line);
@@ -597,6 +625,7 @@ let sales = {total:0, count:0, byProduct:{}, history:[]}; // byProduct: {id:{qty
 let cart = {};           // {id: qty}  (会計前のかご)
 let receivedStr = "";    // 会計画面の入力中文字列
 let pendingResetAction = null;
+let pendingCancelIndex = null;
 let storageAvailable = true; // この端末で永続保存が使えるか(使えない場合はメモリ内だけで動作)
 let appName = "はんばいかい";
 const DEFAULT_APP_NAME = "はんばいかい";
@@ -723,13 +752,19 @@ function renderProductGrid(){
   }
   products.forEach(p=>{
     const btn = document.createElement('button');
-    btn.className = 'product-tile';
-    btn.onclick = ()=>addToCart(p.id);
     const qty = cart[p.id] || 0;
+    const soldout = isSoldOut(p);
+    const left = remainingQty(p);
+    btn.className = 'product-tile' + (soldout ? ' soldout' : (left <= 0 ? ' no-more' : ''));
+    btn.onclick = ()=>addToCart(p.id);
+    let stockHtml = '';
+    if(soldout) stockHtml = '<div class="soldout-stamp">うりきれ</div>';
+    else if(hasStock(p)) stockHtml = `<div class="product-stock${left <= 3 ? ' low' : ''}">のこり ${left}</div>`;
     btn.innerHTML = `
       <div class="product-emoji">${p.image ? `<img class="product-photo-img" src="${p.image}" alt="">` : p.emoji}</div>
       <div class="product-name">${escapeHtml(p.name)}</div>
       <div class="product-price">¥${p.price.toLocaleString()}</div>
+      ${stockHtml}
       ${qty>0 ? `<div class="qty-badge"><button class="qty-minus" onclick="event.stopPropagation(); removeFromCart('${p.id}')">－</button><span class="qty-num">${qty}</span></div>` : ""}
     `;
     grid.appendChild(btn);
@@ -775,7 +810,19 @@ function fitProductGrid(){
 window.addEventListener('resize', fitProductGrid);
 window.addEventListener('orientationchange', ()=>setTimeout(fitProductGrid, 200));
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(fitProductGrid);
+/* ---------------- うる かず（在庫） ---------------- */
+function hasStock(p){ return p && p.stock !== undefined && p.stock !== null && p.stock !== ""; }
+function soldQty(id){ return (sales.byProduct[id] && sales.byProduct[id].qty) || 0; }
+// まだ うれる かず（かごに入っている分は ひく）。きめていなければ Infinity
+function remainingQty(p){
+  if(!hasStock(p)) return Infinity;
+  return Math.max(0, p.stock - soldQty(p.id) - (cart[p.id] || 0));
+}
+function isSoldOut(p){ return hasStock(p) && soldQty(p.id) >= p.stock; }
+
 function addToCart(id){
+  const p = products.find(pp=>pp.id===id);
+  if(p && remainingQty(p) <= 0) return;
   cart[id] = (cart[id]||0) + 1;
   renderProductGrid();
   updateCartBar();
@@ -823,7 +870,7 @@ function renderCartDetail(){
         <div class="cdr-controls">
           <button class="cdr-btn minus" onclick="removeFromCart('${id}')">－</button>
           <span class="cdr-qty">${qty}</span>
-          <button class="cdr-btn plus" onclick="addToCart('${id}')">＋</button>
+          <button class="cdr-btn plus" onclick="addToCart('${id}')" ${remainingQty(p) <= 0 ? 'disabled' : ''}>＋</button>
         </div>
         <span class="cdr-subtotal">¥${(p.price*qty).toLocaleString()}</span>
       </div>
@@ -951,13 +998,14 @@ function recordSale(total, received, change){
     if(!sales.byProduct[id]) sales.byProduct[id] = {qty:0, subtotal:0};
     sales.byProduct[id].qty += cart[id];
     sales.byProduct[id].subtotal += p.price * cart[id];
-    items.push({name:p.name, emoji:p.emoji, image:p.image||"", price:p.price, qty:cart[id], subtotal:p.price*cart[id]});
+    items.push({id, name:p.name, emoji:p.emoji, image:p.image||"", price:p.price, qty:cart[id], subtotal:p.price*cart[id]});
   }
   const now = new Date();
   const hh = String(now.getHours()).padStart(2,'0');
   const mm = String(now.getMinutes()).padStart(2,'0');
+  const lastNum = sales.history.reduce((m, r)=>Math.max(m, r.num || 0), 0);
   sales.history.push({
-    num: sales.count,
+    num: lastNum + 1,
     time: `${hh}:${mm}`,
     items,
     total,
@@ -996,6 +1044,7 @@ function showStaffTab(tab){
   document.getElementById('tab-btn-history').classList.toggle('active', tab==='history');
   document.getElementById('tab-btn-products').classList.toggle('active', tab==='products');
   if(tab==='history') renderHistory();
+  if(tab==='products') renderProductEditList();
 }
 
 /* ---------------- スタッフ:売上集計 ---------------- */
@@ -1031,7 +1080,7 @@ function renderHistory(){
   for(let i = hist.length - 1; i >= 0; i--){
     const rec = hist[i];
     const card = document.createElement('div');
-    card.className = 'history-card';
+    card.className = 'history-card' + (rec.canceled ? ' canceled' : '');
     const itemsHtml = rec.items.map(it=>{
       const iconHtml = it.image ? `<img class="table-thumb" src="${it.image}" alt="">` : `${it.emoji || ''} `;
       return `
@@ -1041,7 +1090,12 @@ function renderHistory(){
     card.innerHTML = `
       <div class="hc-top">
         <span class="hc-num">${rec.num}にん め の おきゃくさま</span>
-        <span class="hc-time">${rec.time}</span>
+        <span class="hc-right">
+          <span class="hc-time">${rec.time}</span>
+          ${rec.canceled
+            ? '<span class="hc-canceled-label">とりけし済</span>'
+            : `<button class="hc-cancel-btn" onclick="askCancelSale(${i})">とりけす</button>`}
+        </span>
       </div>
       <ul>${itemsHtml}</ul>
       <div class="hc-foot">
@@ -1057,6 +1111,38 @@ function askResetSales(){
   document.getElementById('confirm-message').textContent = 'うりあげデータを ぜんぶ リセットしますか？';
   document.getElementById('confirm-overlay').classList.add('active');
 }
+function askCancelSale(index){
+  const rec = sales.history[index];
+  if(!rec || rec.canceled) return;
+  pendingResetAction = 'cancel-sale';
+  pendingCancelIndex = index;
+  document.getElementById('confirm-message').textContent =
+    `${rec.num}にん め の おきゃくさま（¥${rec.total.toLocaleString()}）を とりけしますか？ うりあげから ひかれます。`;
+  document.getElementById('confirm-yes').textContent = 'とりけす';
+  document.getElementById('confirm-overlay').classList.add('active');
+}
+function cancelSale(index){
+  const rec = sales.history[index];
+  if(!rec || rec.canceled) return;
+  rec.canceled = true;
+  sales.total = Math.max(0, sales.total - rec.total);
+  sales.count = Math.max(0, sales.count - 1);
+  rec.items.forEach(it=>{
+    // 古い りれきには id が ないので、なまえで さがす
+    let id = it.id;
+    if(!id){ const p = products.find(pp=>pp.name===it.name); id = p && p.id; }
+    const row = id && sales.byProduct[id];
+    if(!row) return;
+    row.qty = Math.max(0, row.qty - it.qty);
+    row.subtotal = Math.max(0, row.subtotal - it.subtotal);
+    if(row.qty === 0) delete sales.byProduct[id];
+  });
+  saveSales();
+  renderSummary();
+  renderHistory();
+  renderProductGrid();
+  renderProductEditList();
+}
 function askResetProducts(){
   pendingResetAction = 'products';
   document.getElementById('confirm-message').textContent = 'しょうひんせっていを さいしょの じょうたい（クッキー・ジュースなど）に もどしますか？ とうろくした しょうひんと しゃしんは きえます。';
@@ -1064,7 +1150,9 @@ function askResetProducts(){
 }
 function closeConfirm(){
   document.getElementById('confirm-overlay').classList.remove('active');
+  document.getElementById('confirm-yes').textContent = 'リセットする';
   pendingResetAction = null;
+  pendingCancelIndex = null;
 }
 function confirmYes(){
   if(pendingResetAction === 'sales'){
@@ -1072,6 +1160,10 @@ function confirmYes(){
     saveSales();
     renderSummary();
     renderHistory();
+    renderProductGrid();
+    renderProductEditList();
+  } else if(pendingResetAction === 'cancel-sale'){
+    cancelSale(pendingCancelIndex);
   } else if(pendingResetAction === 'products'){
     products = defaultProducts();
     cart = {};
@@ -1106,6 +1198,12 @@ function renderProductEditList(){
       <span class="yen-sign">¥</span>
       <input type="number" class="price-input" value="${p.price}" min="0" onchange="updateProduct('${p.id}','price',this.value)">
       <button class="del-btn" onclick="deleteProduct('${p.id}')">🗑️</button>
+      <div class="stock-line">
+        うる かず
+        <input type="number" class="stock-input" inputmode="numeric" min="0" placeholder="きめない" value="${hasStock(p) ? p.stock : ''}" onchange="updateProduct('${p.id}','stock',this.value)">
+        こ
+        ${hasStock(p) ? `<span class="stock-sold">うれた ${soldQty(p.id)} / のこり ${Math.max(0, p.stock - soldQty(p.id))}</span>` : ''}
+      </div>
     `;
     list.appendChild(row);
   });
@@ -1114,6 +1212,11 @@ function updateProduct(id, field, value){
   const p = products.find(pp=>pp.id===id);
   if(!p) return;
   if(field === 'price') p.price = Math.max(0, parseInt(value,10) || 0);
+  else if(field === 'stock'){
+    const v = String(value).trim();
+    if(v === '') delete p.stock;
+    else p.stock = Math.max(0, parseInt(v,10) || 0);
+  }
   else p[field] = value;
   saveProducts();
   renderProductGrid();
