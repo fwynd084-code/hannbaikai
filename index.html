@@ -41,7 +41,8 @@
   #app{
     max-width:520px;
     margin:0 auto;
-    min-height:100vh;
+    height:100vh;
+    height:100dvh;
     display:flex;
     flex-direction:column;
     position:relative;
@@ -116,10 +117,18 @@
     transition:transform .08s ease;
   }
   .product-tile:active{transform:scale(0.94) translateY(2px); box-shadow:0 1px 0 var(--line);}
-  .product-emoji{font-size:44px; line-height:1;}
-  .product-photo-img{width:56px; height:56px; object-fit:cover; border-radius:14px; display:block;}
-  .product-name{font-size:16px; font-weight:700; text-align:center; word-break:break-word;}
-  .product-price{font-size:15px; font-weight:700; color:var(--teal-dark);}
+  .product-emoji{font-size:calc(44px * var(--ts,1)); line-height:1;}
+  .product-photo-img{width:calc(56px * var(--ts,1)); height:calc(56px * var(--ts,1)); object-fit:cover; border-radius:calc(14px * var(--ts,1)); display:block;}
+  .product-name{font-size:calc(16px * var(--ts,1)); font-weight:700; text-align:center; word-break:break-word;}
+  .product-price{font-size:calc(15px * var(--ts,1)); font-weight:700; color:var(--teal-dark);}
+  /* 商品数と画面サイズに合わせてタイルを広げる（fitProductGrid が設定） */
+  #product-grid.fit .product-tile{justify-content:center; gap:calc(6px * var(--ts,1)); min-height:0;}
+  /* タブレットでは横幅いっぱいに使う */
+  @media (min-width:700px){
+    #app{max-width:1200px;}
+    #cart-bar, #cart-detail{width:100%; max-width:1200px;}
+    #screen-checkout > *, #screen-staff > *{width:100%; max-width:640px; margin-left:auto; margin-right:auto;}
+  }
   .qty-badge{
     position:absolute;
     top:-10px; right:-10px;
@@ -431,6 +440,10 @@
     width:100%; border:none; background:var(--teal); color:#fff; font-family:inherit;
     font-weight:800; font-size:15px; padding:14px; border-radius:16px; cursor:pointer; box-shadow:0 3px 0 var(--teal-dark);
   }
+  #reset-products-btn{
+    width:100%; margin-top:24px; background:#fff; color:#c0392b; font-family:inherit;
+    font-weight:700; font-size:14px; padding:12px; border-radius:14px; border:2px solid #f3c9c2; cursor:pointer;
+  }
 
   /* confirm dialog */
   #confirm-overlay{
@@ -559,6 +572,7 @@
       <div class="staff-panel" id="panel-products">
         <div id="product-edit-list"></div>
         <button id="add-product-btn" onclick="addProduct()">＋ しょうひんを ついか</button>
+        <button id="reset-products-btn" onclick="askResetProducts()">しょうひんせっていを さいしょに もどす</button>
       </div>
     </section>
   </main>
@@ -596,15 +610,17 @@ const DEFAULT_PRODUCTS = [
   {id:"p4", name:"ぬいぐるみ", price:300, emoji:"🧸"},
 ];
 
+function defaultProducts(){ return DEFAULT_PRODUCTS.map(p=>({...p})); }
+
 /* ---------------- 保存/読み込み ---------------- */
 function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_PREFIX + 'products');
-    products = raw ? JSON.parse(raw) : DEFAULT_PRODUCTS;
+    products = raw ? JSON.parse(raw) : defaultProducts();
     if(!raw) saveProducts();
   }catch(e){
     storageAvailable = false;
-    products = DEFAULT_PRODUCTS;
+    products = defaultProducts();
   }
 
   try{
@@ -717,7 +733,47 @@ function renderProductGrid(){
     `;
     grid.appendChild(btn);
   });
+  fitProductGrid();
 }
+
+/* 商品数と画面の広さから、スクロールせずに済む一番大きいタイル配置を選ぶ */
+function fitProductGrid(){
+  const grid = document.getElementById('product-grid');
+  const n = products.length;
+  grid.classList.remove('fit');
+  grid.style.gridTemplateColumns = '';
+  grid.style.gridAutoRows = '';
+  grid.style.removeProperty('--ts');
+  if(n === 0 || grid.offsetParent === null) return;
+  const cs = getComputedStyle(grid);
+  const gap = parseFloat(cs.rowGap) || 14;
+  const W = grid.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const H = grid.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const MIN_W = 140, MIN_H = 120;     // これより小さくなるならスクロールさせる
+  let best = null;
+  for(let cols = 1; cols <= n; cols++){
+    const rows = Math.ceil(n / cols);
+    const w = (W - gap*(cols-1)) / cols;
+    const h = (H - gap*(rows-1)) / rows;
+    if(w < MIN_W || h < MIN_H) continue;
+    const score = Math.min(w, h * 1.15);
+    if(!best || score > best.score) best = {cols, rows, w, h, score};
+  }
+  if(best){
+    grid.classList.add('fit');
+    grid.style.gridTemplateColumns = `repeat(${best.cols}, 1fr)`;
+    grid.style.gridAutoRows = `${Math.floor(best.h)}px`;
+    const ts = Math.max(1, Math.min(3, Math.min(best.w / 160, best.h / 150)));
+    grid.style.setProperty('--ts', ts.toFixed(2));
+  } else {
+    // 商品が多いときは、なるべく多く並べてスクロール
+    const cols = Math.max(2, Math.floor((W + gap) / (150 + gap)));
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  }
+}
+window.addEventListener('resize', fitProductGrid);
+window.addEventListener('orientationchange', ()=>setTimeout(fitProductGrid, 200));
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(fitProductGrid);
 function addToCart(id){
   cart[id] = (cart[id]||0) + 1;
   renderProductGrid();
@@ -746,6 +802,7 @@ function clearCart(){
 }
 function toggleCartDetail(){
   document.getElementById('cart-detail').classList.toggle('open');
+  fitProductGrid();
 }
 function renderCartDetail(){
   const box = document.getElementById('cart-detail');
@@ -926,6 +983,7 @@ function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>{
     s.style.display = (s.id===id) ? 'flex' : 'none';
   });
+  if(id === 'screen-sale') fitProductGrid();
 }
 function openStaff(){ showScreen('screen-staff'); }
 function closeStaff(){ showScreen('screen-sale'); }
@@ -998,6 +1056,11 @@ function askResetSales(){
   document.getElementById('confirm-message').textContent = 'うりあげデータを ぜんぶ リセットしますか？';
   document.getElementById('confirm-overlay').classList.add('active');
 }
+function askResetProducts(){
+  pendingResetAction = 'products';
+  document.getElementById('confirm-message').textContent = 'しょうひんせっていを さいしょの じょうたい（クッキー・ジュースなど）に もどしますか？ とうろくした しょうひんと しゃしんは きえます。';
+  document.getElementById('confirm-overlay').classList.add('active');
+}
 function closeConfirm(){
   document.getElementById('confirm-overlay').classList.remove('active');
   pendingResetAction = null;
@@ -1008,6 +1071,14 @@ function confirmYes(){
     saveSales();
     renderSummary();
     renderHistory();
+  } else if(pendingResetAction === 'products'){
+    products = defaultProducts();
+    cart = {};
+    saveProducts();
+    renderProductEditList();
+    renderProductGrid();
+    updateCartBar();
+    renderCartDetail();
   } else if(pendingResetAction === 'cart'){
     clearCart();
   }
